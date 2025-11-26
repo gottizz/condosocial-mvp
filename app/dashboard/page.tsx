@@ -3,14 +3,15 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { User, onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, query, onSnapshot, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, onSnapshot, orderBy, addDoc, serverTimestamp, where } from "firebase/firestore";
 import { auth, db } from "../../firebase.config";
-import { useTheme } from "../ThemeContext";
+import { useTheme, ThemeProvider } from "../ThemeContext";
 
 // --- TIPOS ---
 interface Comentario { id: string; texto: string; autor: string; fecha: any; }
 interface Anuncio { id: string; contenido: string; autor: string; fecha: any; }
 interface Documento { id: string; nombre: string; url: string; fecha: any; fileType?: string; }
+interface Reporte { id: string; contenido: string; estado: string; fecha: any; } // Nuevo tipo para Mis Reportes
 
 // --- COMPONENTE: BOTÓN MODO OSCURO ---
 const ThemeToggle = () => {
@@ -130,6 +131,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [anuncios, setAnuncios] = useState<Anuncio[]>([]);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
+  const [misReportes, setMisReportes] = useState<Reporte[]>([]); // NUEVO ESTADO
   
   // Estados para Reportes
   const [reporteTexto, setReporteTexto] = useState("");
@@ -152,13 +154,21 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (user) {
+      // Anuncios
       const qAnuncios = query(collection(db, "anuncios"), orderBy("fecha", "desc"));
       const unsubAnuncios = onSnapshot(qAnuncios, (s) => setAnuncios(s.docs.map(d => ({ id: d.id, ...d.data() } as Anuncio))));
       
+      // Documentos
       const qDocs = query(collection(db, "documentos"), orderBy("fecha", "desc"));
       const unsubDocs = onSnapshot(qDocs, (s) => setDocumentos(s.docs.map(d => ({ id: d.id, ...d.data() } as Documento))));
 
-      return () => { unsubAnuncios(); unsubDocs(); };
+      // NUEVO: Mis Reportes (Filtramos por el email del usuario)
+      const qReportes = query(collection(db, "reportes"), where("autor", "==", user.email), orderBy("fecha", "desc"));
+      // Nota: Si falla, puede requerir un índice en Firebase. Si es así, la consola del navegador te dará el link para crearlo.
+      // Si usas reportes anónimos, estos NO aparecerán aquí (por diseño, para proteger el anonimato real).
+      const unsubReportes = onSnapshot(qReportes, (s) => setMisReportes(s.docs.map(d => ({ id: d.id, ...d.data() } as Reporte))));
+
+      return () => { unsubAnuncios(); unsubDocs(); unsubReportes(); };
     }
   }, [user]);
 
@@ -238,6 +248,7 @@ export default function DashboardPage() {
 
       <main className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
         
+        {/* COLUMNA IZQUIERDA (8/12): MURO */}
         <div className="lg:col-span-8 space-y-8">
           
           <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
@@ -272,13 +283,15 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* COLUMNA DERECHA (4/12): HERRAMIENTAS */}
         <div className="lg:col-span-4 space-y-6">
           
+          {/* Tarjeta: RECIBOS */}
           <div className="bg-gradient-to-br from-violet-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200 dark:shadow-none">
             <h3 className="font-bold text-xl mb-4 flex items-center gap-2">
               🧾 Mis Recibos
             </h3>
-            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
               {documentos.map(doc => (
                 <a 
                   key={doc.id} 
@@ -297,10 +310,11 @@ export default function DashboardPage() {
                   </div>
                 </a>
               ))}
-              {documentos.length === 0 && <p className="text-sm text-indigo-200">Estás al día. No hay recibos nuevos.</p>}
+              {documentos.length === 0 && <p className="text-sm text-indigo-200">Estás al día.</p>}
             </div>
           </div>
 
+          {/* Accesos Rápidos */}
           <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
             <h3 className="font-bold text-gray-800 dark:text-white mb-4">Accesos Rápidos</h3>
             <div className="grid grid-cols-1 gap-3">
@@ -313,16 +327,36 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* NUEVA TARJETA: MIS REPORTES */}
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <h3 className="font-bold text-gray-800 dark:text-white mb-4">📋 Mis Reportes Activos</h3>
+            <div className="space-y-3 max-h-[250px] overflow-y-auto">
+              {misReportes.map(rep => (
+                <div key={rep.id} className="p-3 border border-gray-100 dark:border-gray-700 rounded-lg text-sm">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-xs text-gray-400">{rep.fecha?.seconds ? new Date(rep.fecha.seconds * 1000).toLocaleDateString() : 'Hoy'}</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${!rep.estado || rep.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-700' : rep.estado === 'Visto' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                      {rep.estado || 'Pendiente'}
+                    </span>
+                  </div>
+                  <p className="text-gray-700 dark:text-gray-300 truncate">{rep.contenido}</p>
+                </div>
+              ))}
+              {misReportes.length === 0 && <p className="text-xs text-gray-400">No has enviado reportes.</p>}
+            </div>
+          </div>
+
+          {/* Formulario de Reporte */}
           <div id="formulario-reporte" className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
             <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-              🚨 Reportar Incidente
+              🚨 Nuevo Reporte
             </h3>
             <form onSubmit={handleEnviarReporte} className="space-y-3">
               <textarea
                 rows={3}
                 value={reporteTexto}
                 onChange={(e) => setReporteTexto(e.target.value)}
-                placeholder="Ej: Foco quemado en pasillo 3, Ruidos molestos..."
+                placeholder="Ej: Foco quemado en pasillo 3..."
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black dark:text-white dark:bg-gray-700 resize-none"
               />
               
@@ -334,7 +368,7 @@ export default function DashboardPage() {
                     onChange={(e) => setEsAnonimo(e.target.checked)}
                     className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                   />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Enviar como Anónimo</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Anónimo</span>
                 </label>
                 <button
                   type="submit"
