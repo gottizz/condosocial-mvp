@@ -136,18 +136,12 @@ export default function AdminPage() {
   // Estados
   const [nuevoAnuncio, setNuevoAnuncio] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // IA
   const [files, setFiles] = useState<FileList | null>(null);
   const [reporteNombre, setReporteNombre] = useState("");
   const [procesandoIA, setProcesandoIA] = useState(false);
-  
-  // Manual
   const [file, setFile] = useState<File | null>(null);
   const [docNombre, setDocNombre] = useState("");
   const [uploading, setUploading] = useState(false);
-
-  // Encuesta
   const [pregunta, setPregunta] = useState("");
   const [opcion1, setOpcion1] = useState("");
   const [opcion2, setOpcion2] = useState("");
@@ -160,11 +154,8 @@ export default function AdminPage() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (u?.email === "admin@condosocial.app") {
-        setUser(u);
-      } else {
-        router.push("/");
-      }
+      if (u?.email === "admin@condosocial.app") setUser(u);
+      else router.push("/");
       setLoading(false);
     });
     return () => unsubscribe();
@@ -174,10 +165,8 @@ export default function AdminPage() {
     if (user) {
       const qAnuncios = query(collection(db, "anuncios"), orderBy("fecha", "desc"));
       const unsubAnuncios = onSnapshot(qAnuncios, (s) => setAnuncios(s.docs.map(d => ({ id: d.id, ...d.data() } as Anuncio))));
-      
       const qReportes = query(collection(db, "reportes"), orderBy("fecha", "desc"));
       const unsubReportes = onSnapshot(qReportes, (s) => setReportes(s.docs.map(d => ({ id: d.id, ...d.data() } as Reporte))));
-      
       const qEncuestas = query(collection(db, "encuestas"), orderBy("fecha", "desc"));
       const unsubEncuestas = onSnapshot(qEncuestas, (s) => setEncuestas(s.docs.map(d => ({ id: d.id, ...d.data() } as Encuesta))));
 
@@ -221,14 +210,17 @@ export default function AdminPage() {
     finally { setCreandoEncuesta(false); }
   };
 
+  // --- CORRECCIÓN DE TIPO AQUÍ ---
   const fileToGenerativePart = async (file: File) => {
-    const base64EncodedDataPromise = new Promise((resolve) => {
+    const base64EncodedDataPromise = new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
       reader.readAsDataURL(file);
     });
-    return { inlineData: { data: await base64EncodedDataPromise, mimeType: file.type } };
+    const data = await base64EncodedDataPromise;
+    return { inlineData: { data: data, mimeType: file.type } };
   };
+  // ------------------------------
 
   const handleGenerarReporteIA = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -252,18 +244,21 @@ export default function AdminPage() {
         return { concepto: partes[0]?.trim(), fecha: partes[1]?.trim(), monto: parseFloat(montoLimpio) };
       });
 
-      // PDF
       const doc = new jsPDF();
       let yPos = 20;
       doc.setFillColor(30, 58, 138); doc.rect(0, 0, 210, 40, 'F');
       doc.setTextColor(255, 255, 255); doc.setFontSize(24); doc.setFont("helvetica", "bold"); doc.text("CondoSocial", 20, 20);
       doc.setFontSize(12); doc.setFont("helvetica", "normal"); doc.text("Reporte Automatizado", 20, 30);
-      doc.setTextColor(50, 50, 50); doc.setFontSize(18); doc.setFont("helvetica", "bold"); doc.text(reporteNombre.toUpperCase(), 20, 60);
+      
+      doc.setTextColor(50, 50, 50); doc.setFontSize(18); doc.setFont("helvetica", "bold");
+      doc.text(reporteNombre.toUpperCase(), 20, 60);
+      
       yPos = 85;
       doc.setFillColor(240, 240, 240); doc.rect(20, yPos - 8, 170, 12, 'F');
       doc.setTextColor(0, 0, 0); doc.setFontSize(11); doc.setFont("helvetica", "bold");
       doc.text("CONCEPTO", 25, yPos); doc.text("FECHA", 110, yPos); doc.text("MONTO (S/)", 160, yPos);
       yPos += 15;
+
       doc.setFont("helvetica", "normal");
       let totalCalculado = 0;
       datosGastos.forEach((gasto, index) => {
@@ -274,9 +269,11 @@ export default function AdminPage() {
         totalCalculado += gasto.monto;
         yPos += 12;
       });
+      
       yPos += 5; doc.setDrawColor(200, 200, 200); doc.line(20, yPos, 190, yPos); yPos += 15;
       doc.setFontSize(14); doc.setFont("helvetica", "bold"); doc.text("TOTAL:", 100, yPos);
       doc.setTextColor(220, 20, 60); doc.setFontSize(16); doc.text(`S/ ${totalCalculado.toFixed(2)}`, 160, yPos);
+
       doc.setFontSize(9); doc.setTextColor(150); doc.text("Generado con IA", 105, 280, { align: "center" });
 
       const pdfBlob = doc.output('blob');
@@ -352,7 +349,6 @@ export default function AdminPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="space-y-6">
             
-            {/* 🗳️ CREAR VOTACIÓN */}
             <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800">
               <h2 className="font-bold text-lg text-gray-800 dark:text-white mb-4 flex items-center gap-2">🗳️ Crear Votación</h2>
               <form onSubmit={handleCrearEncuesta} className="space-y-3">
@@ -365,10 +361,9 @@ export default function AdminPage() {
               </form>
             </div>
 
-            {/* 🤖 Auditoría IA */}
             <div className="bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 p-1 rounded-2xl shadow-xl shadow-purple-500/20">
               <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl h-full text-white border border-white/10">
-                <h2 className="font-bold text-lg mb-2 flex items-center gap-2">🤖 Auditoría IA</h2>
+                <h2 className="font-bold text-lg mb-2 flex items-center gap-2">🤖 Generar Reporte IA</h2>
                 <form onSubmit={handleGenerarReporteIA} className="space-y-3">
                   <input type="text" value={reporteNombre} onChange={e => setReporteNombre(e.target.value)} placeholder="Título" className="w-full p-3 border border-white/20 rounded-xl bg-black/20 text-white text-sm placeholder-white/50 focus:ring-2 focus:ring-white/50 outline-none" />
                   <div className="relative">
@@ -385,7 +380,6 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* 📢 PUBLICAR */}
             <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800">
               <h2 className="font-bold text-lg text-gray-800 dark:text-white mb-4">📢 Publicar</h2>
               <form onSubmit={handlePublicar} className="space-y-3">
@@ -394,7 +388,6 @@ export default function AdminPage() {
               </form>
             </div>
 
-            {/* 🧾 MANUAL */}
             <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800">
               <h2 className="font-bold text-lg text-gray-800 dark:text-white mb-4">🧾 Subir Manual</h2>
               <form onSubmit={handleUpload} className="space-y-3">
@@ -405,7 +398,6 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* COLUMNA 2: VISTA DEL MURO */}
           <div className="bg-gray-50 dark:bg-slate-950/50 p-6 rounded-2xl border border-gray-200 dark:border-slate-800 h-full overflow-y-auto max-h-[900px] custom-scrollbar">
             <div className="flex items-center justify-between mb-6 sticky top-0 bg-gray-50 dark:bg-[#0b1121] py-2 z-10">
                <h2 className="font-bold text-lg text-gray-800 dark:text-white">Vista del Muro</h2>
@@ -414,10 +406,8 @@ export default function AdminPage() {
             <div className="space-y-4 pb-10">{anuncios.map(anuncio => (<AnuncioCard key={anuncio.id} anuncio={anuncio} />))}</div>
           </div>
 
-          {/* COLUMNA 3: RESULTADOS Y REPORTES */}
           <div className="space-y-6">
             
-            {/* 📊 RESULTADOS ENCUESTAS */}
             <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800">
                 <h2 className="font-bold text-lg text-gray-800 dark:text-white mb-4">📊 Resultados Votaciones</h2>
                 <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar">
@@ -429,7 +419,6 @@ export default function AdminPage() {
                 </div>
             </div>
 
-            {/* 🚨 BUZÓN DE REPORTES */}
             <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 h-full flex flex-col max-h-[500px]">
                 <h2 className="font-bold text-lg text-gray-800 dark:text-white mb-4 flex items-center gap-2 sticky top-0 bg-white dark:bg-slate-900 py-2 z-10">
                     🚨 Buzón <span className="bg-rose-100 text-rose-600 text-xs px-2 py-1 rounded-full">{reportes.length}</span>
