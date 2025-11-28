@@ -16,7 +16,6 @@ const API_KEY = "AIzaSyDrLvlwzOBQqXEi7LtdkEViXGbW7M8cpdo";
 interface Comentario { id: string; texto: string; autor: string; fecha: any; }
 interface Anuncio { id: string; contenido: string; autor: string; fecha: any; }
 interface Reporte { id: string; contenido: string; autor: string; esAnonimo: boolean; fecha: any; estado: string; }
-// INTERFAZ PARA ENCUESTAS
 interface Encuesta { id: string; pregunta: string; opcion1: string; opcion2: string; votos1: number; votos2: number; fecha: any; estado: string; }
 
 const ThemeToggle = () => {
@@ -60,11 +59,16 @@ const AnuncioCard = ({ anuncio }: { anuncio: Anuncio }) => {
       <p className="text-gray-700 dark:text-gray-300 mb-4 text-sm whitespace-pre-wrap leading-relaxed pl-13">
         {anuncio.contenido}
       </p>
+      
       <div className="border-t border-gray-100 dark:border-slate-800 pt-3 flex justify-end">
-        <button onClick={() => setMostrar(!mostrar)} className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-800 px-3 py-1.5 rounded-lg transition-colors">
+        <button 
+          onClick={() => setMostrar(!mostrar)} 
+          className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-800 px-3 py-1.5 rounded-lg transition-colors"
+        >
           {mostrar ? "Ocultar" : `💬 Ver Comentarios (${comentarios.length})`}
         </button>
       </div>
+
       {mostrar && (
         <div className="mt-3 pl-4 border-l-2 border-indigo-100 dark:border-indigo-900 space-y-3 bg-gray-50 dark:bg-slate-950/50 p-3 rounded-r-xl">
           {comentarios.map(com => (
@@ -80,7 +84,6 @@ const AnuncioCard = ({ anuncio }: { anuncio: Anuncio }) => {
   );
 };
 
-// --- COMPONENTE RESULTADO ENCUESTA ---
 const EncuestaResultCard = ({ encuesta }: { encuesta: Encuesta }) => {
   const total = encuesta.votos1 + encuesta.votos2;
   const p1 = total > 0 ? Math.round((encuesta.votos1 / total) * 100) : 0;
@@ -133,14 +136,18 @@ export default function AdminPage() {
   // Estados
   const [nuevoAnuncio, setNuevoAnuncio] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // IA
   const [files, setFiles] = useState<FileList | null>(null);
   const [reporteNombre, setReporteNombre] = useState("");
   const [procesandoIA, setProcesandoIA] = useState(false);
+  
+  // Manual
   const [file, setFile] = useState<File | null>(null);
   const [docNombre, setDocNombre] = useState("");
   const [uploading, setUploading] = useState(false);
-  
-  // Estados Encuesta
+
+  // Encuesta
   const [pregunta, setPregunta] = useState("");
   const [opcion1, setOpcion1] = useState("");
   const [opcion2, setOpcion2] = useState("");
@@ -153,8 +160,11 @@ export default function AdminPage() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (u?.email === "admin@condosocial.app") setUser(u);
-      else router.push("/");
+      if (u?.email === "admin@condosocial.app") {
+        setUser(u);
+      } else {
+        router.push("/");
+      }
       setLoading(false);
     });
     return () => unsubscribe();
@@ -190,7 +200,6 @@ export default function AdminPage() {
     finally { setIsSubmitting(false); }
   };
 
-  // --- CREAR ENCUESTA ---
   const handleCrearEncuesta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pregunta || !opcion1 || !opcion2) return;
@@ -212,15 +221,13 @@ export default function AdminPage() {
     finally { setCreandoEncuesta(false); }
   };
 
-  // --- LÓGICA IA (LA QUE FUNCIONA) ---
   const fileToGenerativePart = async (file: File) => {
-    const base64EncodedDataPromise = new Promise<string>((resolve) => {
+    const base64EncodedDataPromise = new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
       reader.readAsDataURL(file);
     });
-    const data = await base64EncodedDataPromise;
-    return { inlineData: { data: data, mimeType: file.type } };
+    return { inlineData: { data: await base64EncodedDataPromise, mimeType: file.type } };
   };
 
   const handleGenerarReporteIA = async (e: React.FormEvent) => {
@@ -230,37 +237,34 @@ export default function AdminPage() {
     try {
       const genAI = new GoogleGenerativeAI(API_KEY);
       const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-      
       const imageParts = await Promise.all(Array.from(files).map(fileToGenerativePart));
       
-      const prompt = `Analiza estos recibos. Regla: Devuelve SOLO una línea por recibo con formato: EMPRESA | FECHA | MONTO. Ejemplo: Hidrandina | 12/11/2025 | 45.50. Si falta fecha usa "Hoy". Si falta monto usa "0".`;
+      const prompt = `Analiza estos recibos. Regla: Devuelve SOLO una línea por recibo: EMPRESA | FECHA | MONTO. Ejemplo: Hidrandina | 12/11/2025 | 45.50. Si falta fecha usa "Hoy". Si falta monto usa "0".`;
       const result = await model.generateContent([prompt, ...imageParts]);
       const responseText = await result.response.text();
-      console.log("🤖 Respuesta IA:", responseText); 
       
       const lineas = responseText.trim().split('\n').filter(line => line.includes('|'));
       if (lineas.length === 0) throw new Error("Sin datos.");
       
       const datosGastos = lineas.map(line => {
         const partes = line.split('|');
-        const concepto = partes[0]?.trim() || "Gasto";
-        const fecha = partes[1]?.trim() || "Hoy";
         const montoLimpio = partes[2]?.replace(/[^0-9.]/g, '') || "0";
-        return { concepto, fecha, monto: parseFloat(montoLimpio) };
+        return { concepto: partes[0]?.trim(), fecha: partes[1]?.trim(), monto: parseFloat(montoLimpio) };
       });
 
+      // PDF
       const doc = new jsPDF();
       let yPos = 20;
       doc.setFillColor(30, 58, 138); doc.rect(0, 0, 210, 40, 'F');
       doc.setTextColor(255, 255, 255); doc.setFontSize(24); doc.setFont("helvetica", "bold"); doc.text("CondoSocial", 20, 20);
       doc.setFontSize(12); doc.setFont("helvetica", "normal"); doc.text("Reporte Automatizado", 20, 30);
       doc.setTextColor(50, 50, 50); doc.setFontSize(18); doc.setFont("helvetica", "bold"); doc.text(reporteNombre.toUpperCase(), 20, 60);
-      
-      yPos = 85; doc.setFillColor(240, 240, 240); doc.rect(20, yPos - 8, 170, 12, 'F');
+      yPos = 85;
+      doc.setFillColor(240, 240, 240); doc.rect(20, yPos - 8, 170, 12, 'F');
       doc.setTextColor(0, 0, 0); doc.setFontSize(11); doc.setFont("helvetica", "bold");
       doc.text("CONCEPTO", 25, yPos); doc.text("FECHA", 110, yPos); doc.text("MONTO (S/)", 160, yPos);
-      yPos += 15; doc.setFont("helvetica", "normal");
-      
+      yPos += 15;
+      doc.setFont("helvetica", "normal");
       let totalCalculado = 0;
       datosGastos.forEach((gasto, index) => {
         if (index % 2 === 0) { doc.setFillColor(250, 250, 250); doc.rect(20, yPos - 6, 170, 10, 'F'); }
@@ -270,10 +274,10 @@ export default function AdminPage() {
         totalCalculado += gasto.monto;
         yPos += 12;
       });
-      
       yPos += 5; doc.setDrawColor(200, 200, 200); doc.line(20, yPos, 190, yPos); yPos += 15;
       doc.setFontSize(14); doc.setFont("helvetica", "bold"); doc.text("TOTAL:", 100, yPos);
       doc.setTextColor(220, 20, 60); doc.setFontSize(16); doc.text(`S/ ${totalCalculado.toFixed(2)}`, 160, yPos);
+      doc.setFontSize(9); doc.setTextColor(150); doc.text("Generado con IA", 105, 280, { align: "center" });
 
       const pdfBlob = doc.output('blob');
       const pdfFile = new File([pdfBlob], `${reporteNombre}.pdf`, { type: "application/pdf" });
@@ -293,6 +297,8 @@ export default function AdminPage() {
           url: url, fecha: serverTimestamp(), fileType: "application/pdf", evidencias: evidenciasSubidas
         });
         setFiles(null); setReporteNombre(""); setProcesandoIA(false); alert("¡Reporte Creado!");
+        const fileInput = document.getElementById('file-input-ia') as HTMLInputElement;
+        if(fileInput) fileInput.value = "";
       });
     } catch (e) { console.error(e); alert("Error IA"); setProcesandoIA(false); }
   };
@@ -321,7 +327,6 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-500">
-      
       <nav className="bg-white/80 dark:bg-slate-900/80 border-b border-gray-200 dark:border-slate-800 px-6 py-4 sticky top-0 z-30 shadow-sm backdrop-blur-xl">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -345,7 +350,6 @@ export default function AdminPage() {
 
       <main className="max-w-7xl mx-auto p-6 pt-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          
           <div className="space-y-6">
             
             {/* 🗳️ CREAR VOTACIÓN */}
@@ -361,10 +365,10 @@ export default function AdminPage() {
               </form>
             </div>
 
-            {/* 🤖 IA */}
+            {/* 🤖 Auditoría IA */}
             <div className="bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 p-1 rounded-2xl shadow-xl shadow-purple-500/20">
               <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl h-full text-white border border-white/10">
-                <h2 className="font-bold text-lg mb-2 flex items-center gap-2">🤖 Generar Reporte IA</h2>
+                <h2 className="font-bold text-lg mb-2 flex items-center gap-2">🤖 Auditoría IA</h2>
                 <form onSubmit={handleGenerarReporteIA} className="space-y-3">
                   <input type="text" value={reporteNombre} onChange={e => setReporteNombre(e.target.value)} placeholder="Título" className="w-full p-3 border border-white/20 rounded-xl bg-black/20 text-white text-sm placeholder-white/50 focus:ring-2 focus:ring-white/50 outline-none" />
                   <div className="relative">
