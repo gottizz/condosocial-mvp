@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, signInWithEmailAndPassword, User } from "firebase/auth";
+import { onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, User } from "firebase/auth";
 import { auth } from "../firebase.config";
-import Link from "next/link"; // Importamos Link
+import Link from "next/link";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -33,6 +34,7 @@ export default function LoginPage() {
     }
     setLoading(true);
     setError("");
+    setSuccessMsg("");
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -45,6 +47,23 @@ export default function LoginPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!email) {
+      setError("⚠️ Escribe tu correo arriba para enviarte el link.");
+      return;
+    }
+    setError("");
+    setSuccessMsg("");
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setSuccessMsg("✅ ¡Listo! Revisa tu correo para cambiar la contraseña.");
+    } catch (err: any) {
+      console.error(err);
+      setError("No se pudo enviar el correo. Verifica que esté bien escrito.");
     }
   };
 
@@ -88,6 +107,11 @@ export default function LoginPage() {
               className="w-full px-4 py-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               required
             />
+            <div className="text-right mt-2">
+              <button type="button" onClick={handleResetPassword} className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
           </div>
 
           {error && (
@@ -96,33 +120,26 @@ export default function LoginPage() {
             </div>
           )}
 
+          {successMsg && (
+            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800">
+              <p className="text-sm text-center text-green-600 dark:text-green-400 font-bold">{successMsg}</p>
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 text-lg font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all"
+            className="w-full py-3 px-4 text-lg font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all disabled:bg-gray-400"
           >
             {loading ? "Entrando..." : "Ingresar"}
           </button>
         </form>
         
-        {/* SECCIÓN DE REGISTRO */}
         <div className="text-center pt-6 border-t border-gray-200 dark:border-gray-700">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            ¿Eres nuevo en el edificio?
-          </p>
-          <Link 
-            href="/signup" 
-            className="inline-block mt-2 text-blue-600 dark:text-blue-400 font-bold hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors"
-          >
+          <p className="text-sm text-gray-600 dark:text-gray-400">¿Eres nuevo en el edificio?</p>
+          <Link href="/signup" className="inline-block mt-2 text-blue-600 dark:text-blue-400 font-bold hover:underline transition-colors">
             Crea tu cuenta de vecino aquí →
           </Link>
-        </div>
-
-        {/* Info de prueba */}
-        <div className="mt-6 p-4 text-xs text-gray-500 bg-gray-50 dark:bg-gray-700/50 rounded border border-gray-200 dark:border-gray-700">
-          <p className="font-bold mb-1">Cuentas Demo:</p>
-          <p>Admin: admin@condosocial.app</p>
-          <p>Vecino: victor@test.com</p>
         </div>
 
       </div>

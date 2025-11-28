@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-// OJO AQUÍ: Importamos SIN llaves porque es 'export default'
-import ThemeProvider from "./ThemeContext"; 
+import ThemeProvider from "./ThemeContext"; // Importación sin llaves
 
 const inter = Inter({ subsets: ["latin"] });
 

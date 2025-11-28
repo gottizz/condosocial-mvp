@@ -4,12 +4,11 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 const ThemeContext = createContext({ isDark: false, toggleTheme: () => {} });
 
-// 1. EL PROVIDER (Exportación por defecto para el Layout)
+// EXPORT DEFAULT (Para el Layout)
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    // Al cargar, revisamos si había tema guardado
     const savedTheme = localStorage.getItem("theme");
     if (savedTheme === "dark") {
       setIsDark(true);
@@ -35,5 +34,5 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
   );
 }
 
-// 2. EL HOOK (Exportación nombrada para los botones)
+// EXPORT NOMBRADO (Para los botones)
 export const useTheme = () => useContext(ThemeContext);
