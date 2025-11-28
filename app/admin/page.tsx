@@ -16,14 +16,17 @@ const API_KEY = "AIzaSyDrLvlwzOBQqXEi7LtdkEViXGbW7M8cpdo";
 interface Comentario { id: string; texto: string; autor: string; fecha: any; }
 interface Anuncio { id: string; contenido: string; autor: string; fecha: any; }
 interface Reporte { id: string; contenido: string; autor: string; esAnonimo: boolean; fecha: any; estado: string; }
-// Interfaz para Encuestas
+// INTERFAZ PARA ENCUESTAS
 interface Encuesta { id: string; pregunta: string; opcion1: string; opcion2: string; votos1: number; votos2: number; fecha: any; estado: string; }
 
 const ThemeToggle = () => {
   const { isDark, toggleTheme } = useTheme();
   return (
-    <button onClick={toggleTheme} className="p-2 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-yellow-300">
-      {isDark ? "☀️" : "🌙"}
+    <button 
+      onClick={toggleTheme}
+      className="p-2.5 rounded-full bg-white/10 dark:bg-slate-800 text-yellow-500 dark:text-yellow-300 hover:bg-white/20 transition-all border border-gray-200 dark:border-slate-700 backdrop-blur-sm"
+    >
+      {isDark ? "🌙" : "☀️"}
     </button>
   );
 };
@@ -40,31 +43,44 @@ const AnuncioCard = ({ anuncio }: { anuncio: Anuncio }) => {
   }, [mostrar, anuncio.id]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 mb-3 shadow-sm">
-      <div className="flex justify-between mb-2">
-        <span className="font-bold text-blue-600 dark:text-blue-400">{anuncio.autor}</span>
-        <span className="text-xs text-gray-500 dark:text-gray-400">{anuncio.fecha?.seconds ? new Date(anuncio.fecha.seconds * 1000).toLocaleDateString() : ''}</span>
+    <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 mb-4 shadow-sm hover:shadow-md transition-all">
+      <div className="flex justify-between mb-3 items-center">
+        <div className="flex items-center gap-3">
+           <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold">
+             A
+           </div>
+           <div>
+             <span className="font-bold text-gray-900 dark:text-white block">Administración</span>
+             <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+               {anuncio.fecha?.seconds ? new Date(anuncio.fecha.seconds * 1000).toLocaleDateString() : 'Ahora'}
+             </span>
+           </div>
+        </div>
       </div>
-      <p className="text-gray-700 dark:text-gray-300 mb-3 text-sm whitespace-pre-wrap">{anuncio.contenido}</p>
-      <button onClick={() => setMostrar(!mostrar)} className="text-xs font-bold text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400">
-        {mostrar ? "Ocultar" : `Ver Comentarios (${comentarios.length})`}
-      </button>
+      <p className="text-gray-700 dark:text-gray-300 mb-4 text-sm whitespace-pre-wrap leading-relaxed pl-13">
+        {anuncio.contenido}
+      </p>
+      <div className="border-t border-gray-100 dark:border-slate-800 pt-3 flex justify-end">
+        <button onClick={() => setMostrar(!mostrar)} className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-800 px-3 py-1.5 rounded-lg transition-colors">
+          {mostrar ? "Ocultar" : `💬 Ver Comentarios (${comentarios.length})`}
+        </button>
+      </div>
       {mostrar && (
-        <div className="mt-3 pl-3 border-l-2 border-gray-200 dark:border-gray-600 space-y-2">
+        <div className="mt-3 pl-4 border-l-2 border-indigo-100 dark:border-indigo-900 space-y-3 bg-gray-50 dark:bg-slate-950/50 p-3 rounded-r-xl">
           {comentarios.map(com => (
             <div key={com.id} className="text-xs">
-              <span className="font-bold text-gray-800 dark:text-gray-200 mr-2">{com.autor}:</span>
+              <span className="font-bold text-gray-900 dark:text-white mr-2">{com.autor}:</span>
               <span className="text-gray-600 dark:text-gray-400">{com.texto}</span>
             </div>
           ))}
-          {comentarios.length === 0 && <p className="text-xs text-gray-400">Sin comentarios.</p>}
+          {comentarios.length === 0 && <p className="text-xs text-gray-400 italic">Nadie ha comentado aún.</p>}
         </div>
       )}
     </div>
   );
 };
 
-// --- COMPONENTE RESULTADO ENCUESTA (ADMIN) ---
+// --- COMPONENTE RESULTADO ENCUESTA ---
 const EncuestaResultCard = ({ encuesta }: { encuesta: Encuesta }) => {
   const total = encuesta.votos1 + encuesta.votos2;
   const p1 = total > 0 ? Math.round((encuesta.votos1 / total) * 100) : 0;
@@ -77,27 +93,32 @@ const EncuestaResultCard = ({ encuesta }: { encuesta: Encuesta }) => {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 mb-3 text-sm">
-      <div className="flex justify-between items-start mb-2">
-        <h4 className="font-bold text-gray-800 dark:text-white">{encuesta.pregunta}</h4>
+    <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-slate-800 mb-3 text-sm shadow-sm">
+      <div className="flex justify-between items-start mb-3">
+        <h4 className="font-bold text-gray-800 dark:text-white text-sm pr-4">{encuesta.pregunta}</h4>
         {encuesta.estado !== "Cerrada" ? (
-             <button onClick={cerrarEncuesta} className="text-[10px] bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200">Cerrar</button>
+             <button onClick={cerrarEncuesta} className="text-[10px] bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 px-2 py-1 rounded-lg hover:bg-rose-100 transition-colors font-bold whitespace-nowrap">Terminar</button>
         ) : (
-             <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-1 rounded">Finalizada</span>
+             <span className="text-[10px] bg-gray-100 dark:bg-slate-800 text-gray-500 px-2 py-1 rounded-lg whitespace-nowrap">Cerrada</span>
         )}
       </div>
-      <div className="space-y-2">
+      
+      <div className="space-y-3">
         <div>
-            <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300">
-                <span>{encuesta.opcion1}</span> <span>{p1}% ({encuesta.votos1})</span>
+            <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
+                <span>{encuesta.opcion1}</span> <span className="font-bold">{p1}% ({encuesta.votos1})</span>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2"><div className="bg-indigo-600 h-2 rounded-full" style={{width: `${p1}%`}}></div></div>
+            <div className="w-full bg-gray-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500" style={{width: `${p1}%`}}></div>
+            </div>
         </div>
         <div>
-            <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300">
-                <span>{encuesta.opcion2}</span> <span>{p2}% ({encuesta.votos2})</span>
+            <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
+                <span>{encuesta.opcion2}</span> <span className="font-bold">{p2}% ({encuesta.votos2})</span>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2"><div className="bg-purple-500 h-2 rounded-full" style={{width: `${p2}%`}}></div></div>
+            <div className="w-full bg-gray-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{width: `${p2}%`}}></div>
+            </div>
         </div>
       </div>
     </div>
@@ -109,16 +130,12 @@ export default function AdminPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // Estados Publicación
+  // Estados
   const [nuevoAnuncio, setNuevoAnuncio] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Estados IA
   const [files, setFiles] = useState<FileList | null>(null);
   const [reporteNombre, setReporteNombre] = useState("");
   const [procesandoIA, setProcesandoIA] = useState(false);
-  
-  // Estados Manual
   const [file, setFile] = useState<File | null>(null);
   const [docNombre, setDocNombre] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -128,7 +145,7 @@ export default function AdminPage() {
   const [opcion1, setOpcion1] = useState("");
   const [opcion2, setOpcion2] = useState("");
   const [creandoEncuesta, setCreandoEncuesta] = useState(false);
-
+  
   // Data
   const [anuncios, setAnuncios] = useState<Anuncio[]>([]);
   const [reportes, setReportes] = useState<Reporte[]>([]);
@@ -158,7 +175,6 @@ export default function AdminPage() {
     }
   }, [user]);
 
-  // --- PUBLICAR ANUNCIO ---
   const handlePublicar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nuevoAnuncio.trim()) return;
@@ -196,17 +212,17 @@ export default function AdminPage() {
     finally { setCreandoEncuesta(false); }
   };
 
-  // --- AUXILIARES IA ---
+  // --- LÓGICA IA (LA QUE FUNCIONA) ---
   const fileToGenerativePart = async (file: File) => {
-    const base64EncodedDataPromise = new Promise((resolve) => {
+    const base64EncodedDataPromise = new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
       reader.readAsDataURL(file);
     });
-    return { inlineData: { data: await base64EncodedDataPromise, mimeType: file.type } };
+    const data = await base64EncodedDataPromise;
+    return { inlineData: { data: data, mimeType: file.type } };
   };
 
-  // --- GENERAR REPORTE IA (CORREGIDO) ---
   const handleGenerarReporteIA = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!files || files.length === 0 || !reporteNombre) return;
@@ -214,33 +230,38 @@ export default function AdminPage() {
     try {
       const genAI = new GoogleGenerativeAI(API_KEY);
       const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+      
       const imageParts = await Promise.all(Array.from(files).map(fileToGenerativePart));
       
-      const prompt = `Analiza estos recibos. Regla: Devuelve SOLO una línea por recibo: EMPRESA | FECHA | MONTO. Ejemplo: Hidrandina | 12/11/2025 | 45.50. Si falta fecha usa "Hoy". Si falta monto usa "0".`;
+      const prompt = `Analiza estos recibos. Regla: Devuelve SOLO una línea por recibo con formato: EMPRESA | FECHA | MONTO. Ejemplo: Hidrandina | 12/11/2025 | 45.50. Si falta fecha usa "Hoy". Si falta monto usa "0".`;
       const result = await model.generateContent([prompt, ...imageParts]);
       const responseText = await result.response.text();
+      console.log("🤖 Respuesta IA:", responseText); 
       
       const lineas = responseText.trim().split('\n').filter(line => line.includes('|'));
       if (lineas.length === 0) throw new Error("Sin datos.");
       
       const datosGastos = lineas.map(line => {
         const partes = line.split('|');
+        const concepto = partes[0]?.trim() || "Gasto";
+        const fecha = partes[1]?.trim() || "Hoy";
         const montoLimpio = partes[2]?.replace(/[^0-9.]/g, '') || "0";
-        return { concepto: partes[0]?.trim(), fecha: partes[1]?.trim(), monto: parseFloat(montoLimpio) };
+        return { concepto, fecha, monto: parseFloat(montoLimpio) };
       });
 
-      // PDF
       const doc = new jsPDF();
       let yPos = 20;
       doc.setFillColor(30, 58, 138); doc.rect(0, 0, 210, 40, 'F');
       doc.setTextColor(255, 255, 255); doc.setFontSize(24); doc.setFont("helvetica", "bold"); doc.text("CondoSocial", 20, 20);
+      doc.setFontSize(12); doc.setFont("helvetica", "normal"); doc.text("Reporte Automatizado", 20, 30);
+      doc.setTextColor(50, 50, 50); doc.setFontSize(18); doc.setFont("helvetica", "bold"); doc.text(reporteNombre.toUpperCase(), 20, 60);
+      
       yPos = 85; doc.setFillColor(240, 240, 240); doc.rect(20, yPos - 8, 170, 12, 'F');
       doc.setTextColor(0, 0, 0); doc.setFontSize(11); doc.setFont("helvetica", "bold");
       doc.text("CONCEPTO", 25, yPos); doc.text("FECHA", 110, yPos); doc.text("MONTO (S/)", 160, yPos);
-      yPos += 15;
-      doc.setFont("helvetica", "normal");
-      let totalCalculado = 0;
+      yPos += 15; doc.setFont("helvetica", "normal");
       
+      let totalCalculado = 0;
       datosGastos.forEach((gasto, index) => {
         if (index % 2 === 0) { doc.setFillColor(250, 250, 250); doc.rect(20, yPos - 6, 170, 10, 'F'); }
         doc.text(String(gasto.concepto).substring(0, 35), 25, yPos);
@@ -272,13 +293,10 @@ export default function AdminPage() {
           url: url, fecha: serverTimestamp(), fileType: "application/pdf", evidencias: evidenciasSubidas
         });
         setFiles(null); setReporteNombre(""); setProcesandoIA(false); alert("¡Reporte Creado!");
-        const fileInput = document.getElementById('file-input-ia') as HTMLInputElement;
-        if(fileInput) fileInput.value = "";
       });
     } catch (e) { console.error(e); alert("Error IA"); setProcesandoIA(false); }
   };
 
-  // --- SUBIDA MANUAL ---
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file || !docNombre) return;
@@ -328,23 +346,18 @@ export default function AdminPage() {
       <main className="max-w-7xl mx-auto p-6 pt-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           
-          {/* COLUMNA 1: ACCIONES */}
           <div className="space-y-6">
             
             {/* 🗳️ CREAR VOTACIÓN */}
             <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800">
-              <h2 className="font-bold text-lg text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-                🗳️ Crear Votación
-              </h2>
+              <h2 className="font-bold text-lg text-gray-800 dark:text-white mb-4 flex items-center gap-2">🗳️ Crear Votación</h2>
               <form onSubmit={handleCrearEncuesta} className="space-y-3">
-                <input value={pregunta} onChange={e => setPregunta(e.target.value)} className="w-full p-3 border border-gray-200 dark:border-slate-700 rounded-xl bg-gray-50 dark:bg-slate-950 text-black dark:text-white text-sm outline-none" placeholder="Pregunta (Ej: ¿Pintar fachada?)" />
+                <input value={pregunta} onChange={e => setPregunta(e.target.value)} className="w-full p-3 border border-gray-200 dark:border-slate-700 rounded-xl bg-gray-50 dark:bg-slate-950 text-black dark:text-white text-sm outline-none" placeholder="Pregunta" />
                 <div className="flex gap-2">
-                   <input value={opcion1} onChange={e => setOpcion1(e.target.value)} className="w-1/2 p-3 border border-gray-200 dark:border-slate-700 rounded-xl bg-gray-50 dark:bg-slate-950 text-black dark:text-white text-sm outline-none" placeholder="Opción 1" />
-                   <input value={opcion2} onChange={e => setOpcion2(e.target.value)} className="w-1/2 p-3 border border-gray-200 dark:border-slate-700 rounded-xl bg-gray-50 dark:bg-slate-950 text-black dark:text-white text-sm outline-none" placeholder="Opción 2" />
+                   <input value={opcion1} onChange={e => setOpcion1(e.target.value)} className="w-1/2 p-3 border border-gray-200 dark:border-slate-700 rounded-xl bg-gray-50 dark:bg-slate-950 text-black dark:text-white text-sm" placeholder="Opción 1" />
+                   <input value={opcion2} onChange={e => setOpcion2(e.target.value)} className="w-1/2 p-3 border border-gray-200 dark:border-slate-700 rounded-xl bg-gray-50 dark:bg-slate-950 text-black dark:text-white text-sm" placeholder="Opción 2" />
                 </div>
-                <button disabled={creandoEncuesta} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold text-sm disabled:opacity-50 transition-colors">
-                   {creandoEncuesta ? "Creando..." : "Lanzar Votación"}
-                </button>
+                <button disabled={creandoEncuesta} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold text-sm disabled:opacity-50 transition-colors">{creandoEncuesta ? "Creando..." : "Lanzar"}</button>
               </form>
             </div>
 
@@ -353,7 +366,7 @@ export default function AdminPage() {
               <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl h-full text-white border border-white/10">
                 <h2 className="font-bold text-lg mb-2 flex items-center gap-2">🤖 Generar Reporte IA</h2>
                 <form onSubmit={handleGenerarReporteIA} className="space-y-3">
-                  <input value={reporteNombre} onChange={e => setReporteNombre(e.target.value)} placeholder="Título" className="w-full p-3 border border-white/20 rounded-xl bg-black/20 text-white text-sm placeholder-white/50 outline-none" />
+                  <input type="text" value={reporteNombre} onChange={e => setReporteNombre(e.target.value)} placeholder="Título" className="w-full p-3 border border-white/20 rounded-xl bg-black/20 text-white text-sm placeholder-white/50 focus:ring-2 focus:ring-white/50 outline-none" />
                   <div className="relative">
                     <input id="file-input-ia" type="file" multiple onChange={e => setFiles(e.target.files)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.png,.jpeg" />
                     <div className="w-full p-3 border border-dashed border-white/30 rounded-xl bg-white/5 text-center hover:bg-white/10 transition-colors flex flex-col items-center justify-center gap-1">
@@ -394,9 +407,7 @@ export default function AdminPage() {
                <h2 className="font-bold text-lg text-gray-800 dark:text-white">Vista del Muro</h2>
                <span className="text-xs bg-gray-200 dark:bg-slate-800 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-md font-mono">Live</span>
             </div>
-            <div className="space-y-4 pb-10">
-              {anuncios.map(anuncio => (<AnuncioCard key={anuncio.id} anuncio={anuncio} />))}
-            </div>
+            <div className="space-y-4 pb-10">{anuncios.map(anuncio => (<AnuncioCard key={anuncio.id} anuncio={anuncio} />))}</div>
           </div>
 
           {/* COLUMNA 3: RESULTADOS Y REPORTES */}
