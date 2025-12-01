@@ -3,72 +3,103 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { User, onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, query, onSnapshot, orderBy, addDoc, serverTimestamp, where } from "firebase/firestore";
+import { collection, query, onSnapshot, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, arrayUnion } from "firebase/firestore";
 import { auth, db } from "../../firebase.config";
 import { useTheme } from "../ThemeContext";
 import Link from "next/link";
 
+// --- TIPOS ---
 interface Comentario { id: string; texto: string; autor: string; fecha: any; }
 interface Anuncio { id: string; contenido: string; autor: string; uid?: string; fecha: any; }
 interface Documento { id: string; nombre: string; url: string; fecha: any; fileType?: string; evidencias?: any[]; }
 interface Reporte { id: string; contenido: string; estado: string; fecha: any; }
-interface Encuesta { id: string; pregunta: string; opcion1: string; opcion2: string; votos1: number; votos2: number; votosUsuarios: string[]; }
+interface Encuesta { id: string; pregunta: string; opcion1: string; opcion2: string; votos1: number; votos2: number; votosUsuarios: string[]; estado: string; }
 
+// --- COMPONENTE: BOTÓN MODO OSCURO ---
 const ThemeToggle = () => {
   const { isDark, toggleTheme } = useTheme();
   return (
-    <button onClick={toggleTheme} className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-yellow-300 transition-all">
-      {isDark ? "☀️" : "🌙"}
+    <button 
+      onClick={toggleTheme}
+      className="p-2.5 rounded-full bg-white/10 dark:bg-slate-800 text-yellow-500 dark:text-yellow-300 hover:bg-white/20 transition-all border border-gray-200 dark:border-slate-700 backdrop-blur-sm"
+    >
+      {isDark ? "🌙" : "☀️"}
     </button>
   );
 };
 
+// --- COMPONENTE ENCUESTA (CORREGIDO) ---
 const EncuestaCard = ({ encuesta, userEmail }: { encuesta: Encuesta, userEmail: string }) => {
   const yaVoto = encuesta.votosUsuarios?.includes(userEmail);
+  const estaCerrada = encuesta.estado === "Cerrada"; // VERIFICAMOS SI ESTÁ CERRADA
+  
+  // Si ya votó O si está cerrada, mostramos resultados
+  const mostrarResultados = yaVoto || estaCerrada;
+
   const totalVotos = encuesta.votos1 + encuesta.votos2;
   const p1 = totalVotos > 0 ? Math.round((encuesta.votos1 / totalVotos) * 100) : 0;
   const p2 = totalVotos > 0 ? Math.round((encuesta.votos2 / totalVotos) * 100) : 0;
 
-  // Nota: La lógica de votar requiere 'updateDoc' y 'arrayUnion' que no están importados aquí para simplificar la vista del residente.
-  // En un MVP real, deberías importar esas funciones o mover la lógica. 
-  // Por ahora, visualmente funciona para mostrar resultados si ya votaste (o el admin te marcó).
+  const votar = async (opcion: 1 | 2) => {
+    if (yaVoto || estaCerrada) return; // Bloqueamos si está cerrada
+    try {
+      // Actualizamos el contador y agregamos al usuario a la lista de votantes
+      const encuestaRef = doc(db, "encuestas", encuesta.id);
+      await updateDoc(encuestaRef, {
+        [`votos${opcion}`]: encuesta[`votos${opcion}`] + 1,
+        votosUsuarios: arrayUnion(userEmail)
+      });
+    } catch (e) { console.error("Error al votar:", e); }
+  };
 
   return (
-    <div className="bg-white dark:bg-slate-900/50 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 mb-4 relative overflow-hidden backdrop-blur-sm hover:border-indigo-500/30 transition-colors">
-      <div className="absolute top-0 right-0 bg-gradient-to-bl from-indigo-500 to-violet-600 text-white text-[10px] px-3 py-1 rounded-bl-xl font-bold shadow-sm">Votación Activa</div>
-      <h3 className="font-bold text-gray-800 dark:text-white mb-4 pr-8 text-lg">{encuesta.pregunta}</h3>
+    <div className={`bg-white dark:bg-slate-900/50 p-5 rounded-2xl shadow-sm border mb-4 relative overflow-hidden backdrop-blur-sm transition-colors
+      ${estaCerrada ? 'border-gray-200 dark:border-slate-700 opacity-80' : 'border-gray-100 dark:border-slate-800 hover:border-indigo-500/30'}`}>
       
-      {!yaVoto ? (
+      <div className={`absolute top-0 right-0 text-white text-[10px] px-3 py-1 rounded-bl-xl font-bold shadow-sm
+        ${estaCerrada ? 'bg-gray-500' : 'bg-gradient-to-bl from-indigo-500 to-violet-600'}`}>
+        {estaCerrada ? "Finalizada" : "Votación Activa"}
+      </div>
+      
+      <h3 className="font-bold text-gray-800 dark:text-white mb-4 pr-8 text-lg leading-tight">{encuesta.pregunta}</h3>
+      
+      {!mostrarResultados ? (
         <div className="grid grid-cols-2 gap-3">
-          <button className="bg-indigo-50 dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 py-3 rounded-xl font-bold hover:bg-indigo-100 dark:hover:bg-slate-700 transition-all border border-indigo-100 dark:border-slate-700 hover:shadow-md active:scale-95">
+          <button onClick={() => votar(1)} className="bg-indigo-50 dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 py-3 rounded-xl font-bold hover:bg-indigo-100 dark:hover:bg-slate-700 transition-all border border-indigo-100 dark:border-slate-700 hover:shadow-md active:scale-95">
             {encuesta.opcion1}
           </button>
-          <button className="bg-purple-50 dark:bg-slate-800 text-purple-700 dark:text-purple-300 py-3 rounded-xl font-bold hover:bg-purple-100 dark:hover:bg-slate-700 transition-all border border-purple-100 dark:border-slate-700 hover:shadow-md active:scale-95">
+          <button onClick={() => votar(2)} className="bg-purple-50 dark:bg-slate-800 text-purple-700 dark:text-purple-300 py-3 rounded-xl font-bold hover:bg-purple-100 dark:hover:bg-slate-700 transition-all border border-purple-100 dark:border-slate-700 hover:shadow-md active:scale-95">
             {encuesta.opcion2}
           </button>
         </div>
       ) : (
         <div className="space-y-4 animate-in fade-in duration-500">
+          {/* Barra Opción 1 */}
           <div>
             <div className="flex justify-between text-xs mb-1.5 text-gray-600 dark:text-gray-400 font-medium">
               <span>{encuesta.opcion1}</span>
-              <span className="text-indigo-600 dark:text-indigo-400">{p1}%</span>
+              <span className="text-indigo-600 dark:text-indigo-400">{p1}% ({encuesta.votos1})</span>
             </div>
             <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
               <div className="bg-indigo-500 h-2.5 rounded-full transition-all duration-1000 ease-out" style={{ width: `${p1}%` }}></div>
             </div>
           </div>
+          
+          {/* Barra Opción 2 */}
           <div>
             <div className="flex justify-between text-xs mb-1.5 text-gray-600 dark:text-gray-400 font-medium">
               <span>{encuesta.opcion2}</span>
-              <span className="text-purple-600 dark:text-purple-400">{p2}%</span>
+              <span className="text-purple-600 dark:text-purple-400">{p2}% ({encuesta.votos2})</span>
             </div>
             <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
               <div className="bg-purple-500 h-2.5 rounded-full transition-all duration-1000 ease-out" style={{ width: `${p2}%` }}></div>
             </div>
           </div>
-          <p className="text-center text-xs text-emerald-500 dark:text-emerald-400 font-bold flex items-center justify-center gap-1">
-            <span>✓</span> Gracias por tu voto
+
+          {/* Mensaje de estado */}
+          <p className={`text-center text-xs font-bold flex items-center justify-center gap-1 
+            ${estaCerrada ? 'text-gray-400' : 'text-emerald-500 dark:text-emerald-400'}`}>
+            {estaCerrada ? "🔒 Votación cerrada" : (yaVoto ? "✓ Gracias por tu voto" : "")}
           </p>
         </div>
       )}
@@ -76,6 +107,7 @@ const EncuestaCard = ({ encuesta, userEmail }: { encuesta: Encuesta, userEmail: 
   );
 };
 
+// --- COMPONENTE ANUNCIO ---
 const AnuncioCard = ({ anuncio, userEmail }: { anuncio: Anuncio, userEmail: string }) => {
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [nuevoComentario, setNuevoComentario] = useState("");
@@ -184,6 +216,7 @@ const AnuncioCard = ({ anuncio, userEmail }: { anuncio: Anuncio, userEmail: stri
   );
 };
 
+// --- COMPONENTE DOCUMENTO ---
 const DocumentoCard = ({ doc }: { doc: Documento }) => {
   const [mostrarEvidencias, setMostrarEvidencias] = useState(false);
   return (
@@ -247,12 +280,17 @@ export default function DashboardPage() {
     if (user) {
       const qAnuncios = query(collection(db, "anuncios"), orderBy("fecha", "desc"));
       const unsubAnuncios = onSnapshot(qAnuncios, (s) => setAnuncios(s.docs.map(d => ({ id: d.id, ...d.data() } as Anuncio))));
+      
       const qDocs = query(collection(db, "documentos"), orderBy("fecha", "desc"));
       const unsubDocs = onSnapshot(qDocs, (s) => setDocumentos(s.docs.map(d => ({ id: d.id, ...d.data() } as Documento))));
+
       const qReportes = query(collection(db, "reportes"), where("autor", "==", user.email), orderBy("fecha", "desc"));
       const unsubReportes = onSnapshot(qReportes, (s) => setMisReportes(s.docs.map(d => ({ id: d.id, ...d.data() } as Reporte))));
+
+      // Escuchar Encuestas (IMPORTANTE PARA VER RESULTADOS)
       const qEncuestas = query(collection(db, "encuestas"), orderBy("fecha", "desc"));
       const unsubEncuestas = onSnapshot(qEncuestas, (s) => setEncuestas(s.docs.map(d => ({ id: d.id, ...d.data() } as Encuesta))));
+
       return () => { unsubAnuncios(); unsubDocs(); unsubReportes(); unsubEncuestas(); };
     }
   }, [user]);
@@ -307,7 +345,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-500">
-      {/* NAVBAR PREMIUM */}
+      
       <nav className="bg-white/80 dark:bg-slate-900/80 border-b border-gray-200 dark:border-slate-800 px-6 py-4 sticky top-0 z-30 shadow-sm backdrop-blur-xl">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -343,10 +381,8 @@ export default function DashboardPage() {
 
       <main className="max-w-7xl mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-8 pt-8">
         
-        {/* COLUMNA IZQUIERDA (8/12): MURO */}
         <div className="lg:col-span-8 space-y-8">
           
-          {/* Caja de Publicar Estilizada */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-violet-500 to-pink-500 opacity-50 group-hover:opacity-100 transition-opacity"></div>
             <div className="flex gap-4">
@@ -373,27 +409,26 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Feed de Anuncios */}
           <div className="space-y-6 pb-20">
             {anuncios.map(anuncio => (<AnuncioCard key={anuncio.id} anuncio={anuncio} userEmail={user.email || ""} />))}
           </div>
         </div>
 
-        {/* COLUMNA DERECHA (4/12): SIDEBAR */}
         <div className="lg:col-span-4 space-y-6">
           
-          {/* VOTACIONES (SI HAY) */}
+          {/* SECCIÓN DE VOTACIONES */}
           {encuestas.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                  <h3 className="font-bold text-gray-800 dark:text-white text-sm uppercase tracking-wide">Votaciones Activas</h3>
                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
               </div>
-              {encuestas.map(enc => <EncuestaCard key={enc.id} encuesta={enc} userEmail={user.email || ""} />)}
+              {encuestas.map(enc => (
+                <EncuestaCard key={enc.id} encuesta={enc} userEmail={user.email || ""} />
+              ))}
             </div>
           )}
 
-          {/* RECIBOS PREMIUM */}
           <div className="bg-gradient-to-br from-violet-600 to-indigo-700 rounded-3xl p-6 text-white shadow-xl shadow-indigo-500/20 dark:shadow-none relative overflow-hidden">
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
             <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-black/10 rounded-full blur-2xl"></div>
@@ -407,7 +442,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* ACCESOS RÁPIDOS */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800">
             <h3 className="font-bold text-gray-800 dark:text-white mb-4 text-sm uppercase tracking-wide">Atajos</h3>
             <div className="grid grid-cols-2 gap-3">
@@ -422,7 +456,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* MIS REPORTES */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800">
             <h3 className="font-bold text-gray-800 dark:text-white mb-4 text-sm uppercase tracking-wide flex justify-between items-center">
               Mis Reportes
@@ -446,7 +479,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* FORMULARIO DE REPORTE (ID para scroll) */}
           <div id="formulario-reporte" className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 relative">
             <div className="absolute top-0 left-0 w-1 h-full bg-rose-500 rounded-l-2xl"></div>
             <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-4 flex items-center gap-2">
